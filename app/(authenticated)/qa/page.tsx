@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { createServerSupabaseClient } from "@/lib/supabase";
 import QAClient from "@/components/qa/QAClient";
 import type { Project, Contributor } from "@/types";

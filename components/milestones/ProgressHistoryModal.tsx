@@ -1,7 +1,7 @@
 "use client";
 
 import Modal from "@/components/ui/Modal";
-import type { Milestone, MilestoneProgress } from "@/types";
+import type { Milestone } from "@/types";
 import { progressColor } from "./milestone-utils-client";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 

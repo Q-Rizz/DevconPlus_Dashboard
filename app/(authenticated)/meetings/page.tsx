@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { createServerSupabaseClient } from "@/lib/supabase";
 import MeetingsClient from "@/components/meetings/MeetingsClient";
 import type { Meeting, Contributor, Project } from "@/types";

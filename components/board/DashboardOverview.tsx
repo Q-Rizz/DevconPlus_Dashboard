@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo } from "react";
 import { isOverdue, formatDate } from "@/lib/utils";
 import BugSummaryWidget from "./BugSummaryWidget";

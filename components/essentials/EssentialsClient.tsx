@@ -68,7 +68,7 @@ interface Props {
   projects: Project[];
 }
 
-export default function EssentialsClient({ initialSections, contributors, projects }: Props) {
+export default function EssentialsClient({ initialSections, contributors: _contributors, projects }: Props) {
   const [sections, setSections] = useState<EssentialSection[]>(initialSections);
   const [projectFilter, setProjectFilter] = useState<string>(projects[0]?.id ?? "all");
   const [searchQuery, setSearchQuery] = useState("");

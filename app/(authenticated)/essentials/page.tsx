@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { createServerSupabaseClient } from "@/lib/supabase";
 import EssentialsClient from "@/components/essentials/EssentialsClient";
 import type { EssentialSection, Contributor, Project } from "@/types";

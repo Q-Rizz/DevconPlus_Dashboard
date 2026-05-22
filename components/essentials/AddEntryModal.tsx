@@ -91,8 +91,6 @@ export default function AddEntryModal({ entry, sectionId, projectId, contributor
     }
   }
 
-  const selectedType = TYPE_OPTIONS.find((t) => t.value === form.data_type);
-
   return (
     <Modal open onClose={onClose} title={isEdit ? "Edit Entry" : "Add Entry"} className="max-w-lg">
       <form onSubmit={handleSubmit} className="space-y-4">

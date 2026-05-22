@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { createServerSupabaseClient } from "@/lib/supabase";
 import MilestonesClient from "@/components/milestones/MilestonesClient";
 import type { Milestone, Contributor, Project } from "@/types";

@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: false, error: uploadErr.message }, { status: 500 });
       }
 
-      const { data: urlData } = supabase.storage.from("essentials-files").getPublicUrl(filePath);
+      supabase.storage.from("essentials-files").getPublicUrl(filePath);
 
       const { data: maxRow } = await supabase
         .from("essential_entries")

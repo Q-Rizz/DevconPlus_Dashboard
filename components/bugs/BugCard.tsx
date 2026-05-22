@@ -1,7 +1,7 @@
 "use client";
 
 import { formatDate } from "@/lib/utils";
-import type { Bug, BugSeverity, BugStatus, Contributor } from "@/types";
+import type { Bug, BugSeverity, BugStatus } from "@/types";
 
 const SEVERITY_STYLES: Record<BugSeverity, string> = {
   Critical: "bg-red-100 text-red-700",

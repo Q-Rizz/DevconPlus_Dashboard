@@ -19,7 +19,7 @@ interface Props {
   projects: Project[];
 }
 
-export default function MilestonesClient({ initialMilestones, contributors, projects }: Props) {
+export default function MilestonesClient({ initialMilestones, contributors: _contributors, projects }: Props) {
   const [milestones, setMilestones] = useState<Milestone[]>(initialMilestones);
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<MilestoneStatus | "All">("All");

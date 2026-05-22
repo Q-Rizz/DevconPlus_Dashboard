@@ -1,18 +1,17 @@
 import { createBrowserClient, createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient as _createServiceClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 // ─── Browser client (use inside Client Components) ────────────────────────────
-// Returns a memoised singleton per URL+key; safe to call on every render.
 export function createClient() {
   return createBrowserClient(supabaseUrl, supabaseAnonKey);
 }
 
 // ─── Server client (use inside Server Components, Route Handlers, Middleware) ─
 export async function createServerSupabaseClient() {
+  const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {

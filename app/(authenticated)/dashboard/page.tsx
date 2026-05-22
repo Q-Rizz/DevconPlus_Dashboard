@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { createServerSupabaseClient } from "@/lib/supabase";
 import DashboardClient from "@/components/board/DashboardClient";
 import type { Project, Contributor } from "@/types";

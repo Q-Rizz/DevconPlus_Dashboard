@@ -108,7 +108,6 @@ export default function BugDetailPanel({ bug, contributors, onUpdate, onClose }:
   }
 
   const reporter = bug.reporter ?? contributors.find((c) => c.id === bug.reported_by);
-  const assignee = bug.assignee ?? contributors.find((c) => c.id === bug.assigned_to);
 
   return (
     <div className="fixed inset-y-0 right-0 w-full max-w-xl bg-white shadow-2xl z-40 flex flex-col overflow-hidden border-l border-gray-200">

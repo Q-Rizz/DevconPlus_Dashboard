@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { createServerSupabaseClient } from "@/lib/supabase";
 import ContributorsClient from "@/components/contributors/ContributorsClient";
 import type { Contributor, Role } from "@/types";

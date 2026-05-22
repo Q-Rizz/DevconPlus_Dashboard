@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { createServerSupabaseClient } from "@/lib/supabase";
 import AnnouncementsClient from "@/components/announcements/AnnouncementsClient";
 import type { Announcement, Contributor } from "@/types";
