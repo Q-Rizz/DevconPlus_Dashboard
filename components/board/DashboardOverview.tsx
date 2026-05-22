@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { isOverdue, formatDate } from "@/lib/utils";
 import BugSummaryWidget from "./BugSummaryWidget";
 import UpcomingMeetingsWidget from "./UpcomingMeetingsWidget";
+import MilestonesWidget from "./MilestonesWidget";
 import type { Task, Contributor } from "@/types";
 
 interface Props {
@@ -123,6 +124,11 @@ export default function DashboardOverview({ tasks, currentContributor, selectedP
 
       {/* Upcoming meetings (self-fetching) */}
       <UpcomingMeetingsWidget />
+
+      {/* Milestones (self-fetching) */}
+      <div className="mt-4">
+        <MilestonesWidget projectId={selectedProjectId || undefined} />
+      </div>
     </div>
   );
 }

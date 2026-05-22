@@ -33,6 +33,21 @@ interface MeetingRow {
   google_meet_link: string | null;
 }
 
+interface MilestoneRow {
+  id: string;
+  title: string;
+  status: string;
+  target_date: string;
+  progress: Array<{ progress_percent: number; progress_note: string; logged_date: string }>;
+}
+
+interface EssentialSectionRow {
+  id: string;
+  title: string;
+  icon: string | null;
+  entries: Array<{ id: string; label: string; data_type: string; value_text: string | null; note: string | null }>;
+}
+
 // ─── Bot singleton ────────────────────────────────────────────────────────────
 
 let _bot: Bot | null = null;
@@ -88,6 +103,8 @@ function registerHandlers(bot: Bot) {
         "/status <keyword> — Search your tasks and update status\n" +
         "/meetings — Your upcoming meetings this week\n" +
         "/standup — Get a quick standup summary\n" +
+        "/milestones — Current milestone status and progress\n" +
+        "/essentials [term] — Browse or search the team essentials wiki\n" +
         "/announce <message> — \\(PM only\\) Send announcement to all contributors\n" +
         "/help — Show this message",
       { parse_mode: "MarkdownV2" }
@@ -415,7 +432,113 @@ function registerHandlers(bot: Bot) {
     );
   });
 
-  // Fallback for unknown commands
+  // /milestones — show current milestone statuses and progress
+  bot.command("milestones", async (ctx) => {
+    const username = ctx.from?.username;
+    if (!username) return ctx.reply("Could not determine your Telegram username.");
+
+    const contributor = await getContributor(username).catch(() => null);
+    if (!contributor) return ctx.reply(notLinkedMessage());
+
+    const supabase = createServiceRoleClient();
+    const { data, error } = await supabase
+      .from("milestones")
+      .select("id,title,status,target_date,progress:milestone_progress(progress_percent,progress_note,logged_date)")
+      .not("status", "in", '("Achieved","Missed")')
+      .order("target_date", { ascending: true })
+      .limit(10);
+
+    if (error) {
+      console.error("[/milestones]", error);
+      return ctx.reply("Something went wrong. Please try again or check the dashboard.");
+    }
+
+    const milestones = (data as unknown as MilestoneRow[]) ?? [];
+
+    if (milestones.length === 0) {
+      return ctx.reply("No active milestones right now.");
+    }
+
+    const lines = milestones.map((m) => {
+      const sortedProgress = [...(m.progress ?? [])].sort((a, b) => b.logged_date.localeCompare(a.logged_date));
+      const latest = sortedProgress[0];
+      const pct = latest?.progress_percent ?? 0;
+      const note = latest?.progress_note ? `"${latest.progress_note.slice(0, 80)}${latest.progress_note.length > 80 ? "…" : ""}"` : "No updates yet";
+      const statusEmoji = m.status === "At Risk" ? "⚠️" : m.status === "In Progress" ? "🔵" : "⬜";
+      const due = new Date(m.target_date + "T00:00:00").toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+      return `${statusEmoji} ${m.title} — ${m.status} — ${pct}% — Due ${due}\n   Latest: ${note}`;
+    });
+
+    await ctx.reply(`🏁 Project milestones:\n\n${lines.join("\n\n")}`);
+  });
+
+  // /essentials [term] — browse sections or search entries
+  bot.command("essentials", async (ctx) => {
+    const username = ctx.from?.username;
+    if (!username) return ctx.reply("Could not determine your Telegram username.");
+
+    const contributor = await getContributor(username).catch(() => null);
+    if (!contributor) return ctx.reply(notLinkedMessage());
+
+    const term = ctx.match?.trim().toLowerCase();
+    const supabase = createServiceRoleClient();
+
+    const { data, error } = await supabase
+      .from("essential_sections")
+      .select("id,title,icon,entries:essential_entries(id,label,data_type,value_text,note)")
+      .order("position", { ascending: true });
+
+    if (error) {
+      console.error("[/essentials]", error);
+      return ctx.reply("Something went wrong. Please try again or check the dashboard.");
+    }
+
+    const sections = (data as unknown as EssentialSectionRow[]) ?? [];
+
+    if (sections.length === 0) {
+      return ctx.reply("No essentials sections found. Ask your PM to set them up.");
+    }
+
+    if (!term) {
+      // List section titles with entry counts
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const lines = sections.map((s) => {
+        const count = (s.entries ?? []).length;
+        const icon = s.icon ? `${s.icon} ` : "";
+        return `• ${icon}${s.title} (${count} ${count === 1 ? "entry" : "entries"})`;
+      });
+      await ctx.reply(
+        `📚 Essentials sections:\n\n${lines.join("\n")}\n\nView all: ${appUrl}/essentials`
+      );
+      return;
+    }
+
+    // Search mode: match label or value_text
+    const matches: Array<{ section: string; icon: string | null; label: string; value: string | null; note: string | null }> = [];
+    for (const s of sections) {
+      for (const e of s.entries ?? []) {
+        const inLabel = e.label.toLowerCase().includes(term);
+        const inValue = e.data_type !== "credential" && e.value_text?.toLowerCase().includes(term);
+        if (inLabel || inValue) {
+          matches.push({ section: s.title, icon: s.icon, label: e.label, value: e.data_type === "credential" ? "••••••" : e.value_text, note: e.note });
+        }
+      }
+    }
+
+    if (matches.length === 0) {
+      return ctx.reply(`No essentials entries found for "${term}".`);
+    }
+
+    const lines = matches.slice(0, 15).map((m) => {
+      const icon = m.icon ? `${m.icon} ` : "";
+      const val = m.value ? `\n   Value: ${m.value.slice(0, 100)}${m.value.length > 100 ? "…" : ""}` : "";
+      const note = m.note ? `\n   Note: ${m.note}` : "";
+      return `• [${icon}${m.section}] ${m.label}${val}${note}`;
+    });
+
+    const suffix = matches.length > 15 ? `\n\n…and ${matches.length - 15} more. Check the dashboard for the full list.` : "";
+    await ctx.reply(`🔍 Essentials matching "${term}":\n\n${lines.join("\n\n")}${suffix}`);
+  });
   bot.on("message:text", (ctx) => {
     if (ctx.message.text?.startsWith("/")) {
       ctx.reply("Unknown command. Type /help to see what I can do.");

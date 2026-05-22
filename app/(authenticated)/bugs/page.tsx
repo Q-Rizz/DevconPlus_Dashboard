@@ -24,7 +24,7 @@ export default async function BugsPage() {
     <BugsClient
       initialBugs={(bugs as Bug[]) ?? []}
       projects={(projects as Project[]) ?? []}
-      contributors={(contributors as Contributor[]) ?? []}
+      contributors={(contributors as unknown as Contributor[]) ?? []}
     />
   );
 }

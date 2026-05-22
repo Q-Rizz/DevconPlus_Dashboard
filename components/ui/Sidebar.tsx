@@ -14,7 +14,9 @@ const NAV_ITEMS = [
   { href: "/bugs", label: "Bugs", icon: "🐛" },
   { href: "/announcements", label: "Announcements", icon: "📣" },
   { href: "/meetings", label: "Meetings", icon: "📅" },
+  { href: "/milestones", label: "Milestones", icon: "🏁" },
   { href: "/contributors", label: "Contributors", icon: "👥" },
+  { href: "/essentials", label: "Essentials", icon: "📚" },
 ];
 
 export default function Sidebar() {

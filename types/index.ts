@@ -192,6 +192,75 @@ export interface MeetingAttendee {
   contributor?: Contributor;
 }
 
+// ─── Milestones ───────────────────────────────────────────────────────────────
+
+export type MilestoneStatus = "Not Started" | "In Progress" | "At Risk" | "Achieved" | "Missed";
+
+export interface Milestone {
+  id: string;
+  project_id: string | null;
+  title: string;
+  description: string | null;
+  target_date: string;
+  status: MilestoneStatus;
+  achieved_at: string | null;
+  announced: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // joined
+  progress?: MilestoneProgress[];
+  project?: Project;
+  creator?: Contributor;
+}
+
+export interface MilestoneProgress {
+  id: string;
+  milestone_id: string;
+  logged_by: string | null;
+  progress_note: string;
+  progress_percent: number;
+  blockers: string | null;
+  logged_date: string;
+  created_at: string;
+  // joined
+  logger?: Contributor;
+}
+
+// ─── Essentials ───────────────────────────────────────────────────────────────
+
+export type EntryDataType = "text" | "link" | "code" | "file" | "email" | "credential";
+
+export interface EssentialSection {
+  id: string;
+  project_id: string;
+  title: string;
+  description: string | null;
+  icon: string | null;
+  position: number;
+  created_by: string | null;
+  created_at: string;
+  // joined
+  entries?: EssentialEntry[];
+}
+
+export interface EssentialEntry {
+  id: string;
+  section_id: string;
+  project_id: string;
+  label: string;
+  data_type: EntryDataType;
+  value_text: string | null;
+  value_file_url: string | null;
+  value_file_name: string | null;
+  is_sensitive: boolean;
+  position: number;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ─── UI / view helpers ────────────────────────────────────────────────────────
 
 export interface BoardColumn {

@@ -11,8 +11,11 @@
 //        GOOGLE_CALENDAR_ID=pm@example.com   (PM's Google Calendar ID)
 
 import { google } from "googleapis";
-import { v4 as uuidv4 } from "crypto";
 import type { MeetingRecurrence } from "@/types";
+
+function uuidv4(): string {
+  return crypto.randomUUID();
+}
 
 function getAuth() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -149,14 +152,5 @@ export async function cancelCalendarEvent(googleEventId: string): Promise<void> 
     calendarId: calendarId(),
     eventId: googleEventId,
     sendUpdates: "all", // Google sends cancellation notices automatically
-  });
-}
-
-// Node crypto doesn't export uuidv4 — use this simple helper instead
-function uuidv4(): string {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
   });
 }

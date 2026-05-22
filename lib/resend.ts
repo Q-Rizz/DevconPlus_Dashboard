@@ -260,6 +260,7 @@ export async function sendMeetingReminderEmail(
     `),
   });
 }
+// ─── Welcome ──────────────────────────────────────────────────────────────────
 export interface WelcomeEmailOptions {
   to: string;
   name: string;
@@ -283,6 +284,47 @@ export async function sendWelcomeEmail(opts: WelcomeEmailOptions): Promise<void>
         <li>Receive team announcements</li>
       </ul>
       ${ctaButton(`${appUrl}/login`, "Log in to DEVCON+ PM")}
+    `),
+  });
+}
+
+// ─── Milestone achieved ────────────────────────────────────────────────────────
+export interface MilestoneAchievedEmailOptions {
+  to: string;
+  recipientName: string;
+  milestoneTitle: string;
+  targetDate: string;
+  achievedAt: string;
+  description: string | null;
+}
+
+export async function sendMilestoneAchievedEmail(
+  opts: MilestoneAchievedEmailOptions
+): Promise<void> {
+  const resend = getResendClient();
+
+  const formattedTarget = new Date(opts.targetDate).toLocaleDateString("en-PH", {
+    year: "numeric", month: "long", day: "numeric",
+  });
+  const formattedAchieved = new Date(opts.achievedAt).toLocaleDateString("en-PH", {
+    year: "numeric", month: "long", day: "numeric",
+  });
+
+  await resend.emails.send({
+    from: "DEVCON+ PM <onboarding@resend.dev>",
+    to: opts.to,
+    subject: `🎉 Milestone Achieved: ${opts.milestoneTitle}`,
+    html: emailWrapper(`
+      <p style="color:#374151;">Hi <strong>${opts.recipientName}</strong>,</p>
+      <p style="color:#374151;">Great news — the DEVCON+ team has achieved a milestone!</p>
+      <div style="margin:20px 0;padding:20px;background:#f0fdf4;border-left:4px solid #22c55e;border-radius:0 8px 8px 0;">
+        <p style="margin:0 0 8px;font-size:18px;font-weight:700;color:#15803d;">🏆 ${opts.milestoneTitle}</p>
+        <p style="margin:4px 0;color:#374151;">📅 Target date: <strong>${formattedTarget}</strong></p>
+        <p style="margin:4px 0;color:#374151;">✅ Achieved on: <strong>${formattedAchieved}</strong></p>
+        ${opts.description ? `<p style="margin:8px 0 0;color:#374151;">📝 ${opts.description}</p>` : ""}
+      </div>
+      <p style="color:#374151;">This is the result of everyone's hard work and dedication. Keep up the great momentum as we push toward the full launch.</p>
+      <p style="color:#6b7280;font-size:13px;">— DEVCON+ PM</p>
     `),
   });
 }

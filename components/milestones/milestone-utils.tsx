@@ -1,0 +1,114 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import type { Milestone, MilestoneProgress } from "@/types";
+import { progressColor } from "./milestone-utils-client";
+
+interface ProgressRingProps {
+  percent: number;
+  size?: number;
+  strokeWidth?: number;
+  achieved?: boolean;
+}
+
+export function ProgressRing({ percent, size = 48, strokeWidth = 4, achieved = false }: ProgressRingProps) {
+  const r = (size - strokeWidth) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (percent / 100) * circ;
+  const color = progressColor(percent);
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className={achieved ? "animate-pulse" : ""}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e5e7eb" strokeWidth={strokeWidth} />
+      <circle
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeDasharray={circ}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        style={{ transition: "stroke-dashoffset 0.4s ease" }}
+      />
+      <text x={size / 2} y={size / 2 + 1} textAnchor="middle" dominantBaseline="middle" fontSize={size * 0.22} fontWeight="700" fill={color}>
+        {percent}%
+      </text>
+    </svg>
+  );
+}
+
+// ─── Status badge ─────────────────────────────────────────────────────────────
+
+const STATUS_STYLES: Record<string, string> = {
+  "Not Started": "bg-gray-100 text-gray-600",
+  "In Progress": "bg-blue-100 text-blue-700",
+  "At Risk":     "bg-orange-100 text-orange-700",
+  "Achieved":    "bg-green-100 text-green-700",
+  "Missed":      "bg-red-100 text-red-600",
+};
+
+export function StatusBadge({ status }: { status: string }) {
+  return (
+    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_STYLES[status] ?? STATUS_STYLES["Not Started"]}`}>
+      {status === "Achieved" && <span>✓</span>}
+      {status}
+    </span>
+  );
+}
+
+// ─── Countdown text ───────────────────────────────────────────────────────────
+
+export function CountdownText({ targetDate }: { targetDate: string }) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(targetDate + "T00:00:00");
+  const diffMs = target.getTime() - today.getTime();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return <span className="text-red-600 font-bold text-xs">Due today</span>;
+  }
+  if (diffDays < 0) {
+    return (
+      <span className="text-red-500 text-xs">
+        Overdue by {Math.abs(diffDays)} day{Math.abs(diffDays) !== 1 ? "s" : ""}
+      </span>
+    );
+  }
+  if (diffDays <= 3) {
+    return <span className="text-orange-500 text-xs">Due in {diffDays} day{diffDays !== 1 ? "s" : ""}</span>;
+  }
+  return <span className="text-gray-400 text-xs">Due in {diffDays} days</span>;
+}
+
+// ─── Latest progress percent helper ──────────────────────────────────────────
+
+export function latestProgress(milestone: Milestone): number {
+  const entries = milestone.progress ?? [];
+  if (entries.length === 0) return 0;
+  const sorted = [...entries].sort((a, b) => b.logged_date.localeCompare(a.logged_date) || b.created_at.localeCompare(a.created_at));
+  return sorted[0].progress_percent;
+}
+
+export function latestProgressEntry(milestone: Milestone): MilestoneProgress | null {
+  const entries = milestone.progress ?? [];
+  if (entries.length === 0) return null;
+  return [...entries].sort((a, b) => b.logged_date.localeCompare(a.logged_date) || b.created_at.localeCompare(a.created_at))[0];
+}
+
+// ─── Time ago helper ──────────────────────────────────────────────────────────
+
+export function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+// ─── Re-exports for use in other milestone components ─────────────────────────
+export type { Milestone, MilestoneProgress };
+export { useCallback, useState };
