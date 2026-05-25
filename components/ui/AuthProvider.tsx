@@ -33,6 +33,7 @@ export default function AuthProvider({
         .from("contributors")
         .select("*, role:roles(*)")
         .eq("email", user.email!)
+        .is("deleted_at", null)
         .single();
 
       if (!contributor) {

@@ -56,7 +56,8 @@ export default function BugsClient({ initialBugs, projects, contributors }: Prop
         if (!data) return;
         const bug = data as Bug;
         if (payload.eventType === "INSERT") {
-          setBugs((prev) => [bug, ...prev]);
+          // Deduplicate — handleCreated may have already added it optimistically
+          setBugs((prev) => prev.some((b) => b.id === bug.id) ? prev.map((b) => b.id === bug.id ? bug : b) : [bug, ...prev]);
         } else {
           setBugs((prev) => prev.map((b) => (b.id === bug.id ? bug : b)));
         }
@@ -72,6 +73,7 @@ export default function BugsClient({ initialBugs, projects, contributors }: Prop
   }
 
   function handleCreated(bug: Bug) {
+    setBugs((prev) => [bug, ...prev]);
     setShowNew(false);
     setToast({ message: `Bug "${bug.title}" filed.`, type: "success" });
   }
