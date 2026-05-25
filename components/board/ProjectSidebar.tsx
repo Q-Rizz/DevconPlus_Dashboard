@@ -9,6 +9,8 @@ interface Props {
   selectedProjectId: string | null;
   onSelect: (id: string) => void;
   onNewProject: () => void;
+  collapsed: boolean;
+  onToggle: () => void;
 }
 
 export default function ProjectSidebar({
@@ -16,6 +18,8 @@ export default function ProjectSidebar({
   selectedProjectId,
   onSelect,
   onNewProject,
+  collapsed,
+  onToggle,
 }: Props) {
   const [search, setSearch] = useState("");
 
@@ -23,12 +27,40 @@ export default function ProjectSidebar({
     p.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Collapsed strip — just a toggle button
+  if (collapsed) {
+    return (
+      <aside className="w-10 shrink-0 border-r border-gray-200 bg-gray-50/60 flex flex-col items-center pt-4 h-screen">
+        <button
+          onClick={onToggle}
+          title="Expand sidebar"
+          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white hover:shadow-sm transition-all duration-150"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <aside className="w-52 shrink-0 border-r border-gray-200 bg-gray-50/60 flex flex-col h-screen">
       <div className="px-3 pt-4 pb-3 border-b border-gray-200">
-        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5 px-1">
-          Projects
-        </p>
+        <div className="flex items-center justify-between mb-2.5 px-1">
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+            Projects
+          </p>
+          <button
+            onClick={onToggle}
+            title="Collapse sidebar"
+            className="p-1 rounded-lg text-gray-300 hover:text-gray-600 hover:bg-gray-200 transition-all duration-150"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        </div>
         <div className="relative">
           <svg
             className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none"

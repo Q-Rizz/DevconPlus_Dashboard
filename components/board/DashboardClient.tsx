@@ -42,6 +42,7 @@ export default function DashboardClient({ initialProjects, contributors }: Props
   const [loading, setLoading] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [showNewProject, setShowNewProject] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -489,6 +490,8 @@ export default function DashboardClient({ initialProjects, contributors }: Props
             selectedProjectId={selectedProjectId}
             onSelect={setSelectedProjectId}
             onNewProject={() => setShowNewProject(true)}
+            collapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed((v) => !v)}
           />
 
           {/* Main board */}
