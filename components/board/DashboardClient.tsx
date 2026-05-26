@@ -166,8 +166,23 @@ export default function DashboardClient({ initialProjects, contributors }: Props
     if (type === "group") {
       reorderGroups(activeId, overId);
     } else if (type === "task") {
-      const groupId = active.data.current?.groupId as string;
-      reorderTasks(groupId, activeId, overId);
+      const sourceGroupId = active.data.current?.groupId as string;
+
+      // Determine destination group from the over target
+      let destGroupId: string;
+      if (over.data.current?.type === "task") {
+        destGroupId = over.data.current?.groupId as string;
+      } else if (over.data.current?.type === "group") {
+        destGroupId = overId;
+      } else {
+        destGroupId = sourceGroupId;
+      }
+
+      if (sourceGroupId === destGroupId) {
+        reorderTasks(sourceGroupId, activeId, overId);
+      } else {
+        moveTaskToGroup(activeId, sourceGroupId, destGroupId, overId);
+      }
     }
   }
 
@@ -373,6 +388,41 @@ export default function DashboardClient({ initialProjects, contributors }: Props
         supabase.from("tasks").update({ position: i }).eq("id", t.id)
       )
     );
+  }
+
+  async function moveTaskToGroup(
+    taskId: string,
+    fromGroupId: string,
+    toGroupId: string,
+    overId: string
+  ) {
+    const task = (tasksByGroup[fromGroupId] ?? []).find((t) => t.id === taskId);
+    if (!task) return;
+
+    const sourceTasks = (tasksByGroup[fromGroupId] ?? []).filter((t) => t.id !== taskId);
+    const destTasks = tasksByGroup[toGroupId] ?? [];
+    const overIdx = destTasks.findIndex((t) => t.id === overId);
+    const insertAt = overIdx === -1 ? destTasks.length : overIdx;
+
+    const newDestTasks = [
+      ...destTasks.slice(0, insertAt),
+      { ...task, group_id: toGroupId },
+      ...destTasks.slice(insertAt),
+    ];
+
+    setTasksByGroup((prev) => ({
+      ...prev,
+      [fromGroupId]: sourceTasks,
+      [toGroupId]: newDestTasks,
+    }));
+
+    await supabase.from("tasks").update({ group_id: toGroupId }).eq("id", taskId);
+    await Promise.all([
+      ...sourceTasks.map((t, i) => supabase.from("tasks").update({ position: i }).eq("id", t.id)),
+      ...newDestTasks.map((t, i) => supabase.from("tasks").update({ position: i }).eq("id", t.id)),
+    ]);
+
+    logActivity("moved", "task", task.title);
   }
 
   // ─── Attachment mutations ───────────────────────────────────────────────────
