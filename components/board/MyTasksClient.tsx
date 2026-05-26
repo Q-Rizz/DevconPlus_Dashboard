@@ -58,7 +58,7 @@ export default function MyTasksClient({ tasks, contributorName }: Props) {
   }
 
   const todayStr = today();
-  const tomorrowStr = offsetDate(1);
+  const _tomorrowStr = offsetDate(1);
   const in3DaysStr = offsetDate(3);
 
   const overdue: MyTask[] = [];

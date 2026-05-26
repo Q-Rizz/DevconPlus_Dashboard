@@ -261,6 +261,47 @@ export async function sendMeetingReminderEmail(
     `),
   });
 }
+// ─── Task reminder ────────────────────────────────────────────────────────────
+export interface TaskReminderEmailOptions {
+  to: string;
+  assigneeName: string;
+  taskTitle: string;
+  projectName: string;
+  dueDate: string | null;
+  reminderType: "3_days" | "1_day" | "due_today";
+}
+
+export async function sendTaskReminderEmail(opts: TaskReminderEmailOptions): Promise<void> {
+  const resend = getResendClient();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const due = opts.dueDate
+    ? new Date(opts.dueDate).toLocaleDateString("en-PH", { year: "numeric", month: "long", day: "numeric" })
+    : "Not set";
+  const urgencyLabel =
+    opts.reminderType === "due_today" ? "due TODAY"
+    : opts.reminderType === "1_day"   ? "due TOMORROW"
+    :                                   "due in 3 days";
+  const borderColor =
+    opts.reminderType === "due_today" ? "#ef4444"
+    : opts.reminderType === "1_day"   ? "#f59e0b"
+    :                                   "#3b82f6";
+
+  await resend.emails.send({
+    from: process.env.RESEND_FROM_DOMAIN ? `DEVCON+ PM <noreply@${process.env.RESEND_FROM_DOMAIN}>` : "DEVCON+ PM <onboarding@resend.dev>",
+    to: opts.to,
+    subject: `[Reminder] Task ${urgencyLabel}: ${opts.taskTitle}`,
+    html: emailWrapper(`
+      <p style="color:#374151;">Hi <strong>${opts.assigneeName}</strong>,</p>
+      <p style="color:#374151;">This is a reminder that a task assigned to you is <strong>${urgencyLabel}</strong>.</p>
+      <div style="margin:20px 0;padding:16px;background:#f9fafb;border-left:4px solid ${borderColor};border-radius:0 8px 8px 0;">
+        <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#374151;">${opts.taskTitle}</p>
+        <p style="margin:0;color:#6b7280;font-size:13px;">Project: ${opts.projectName} &mdash; Due: ${due}</p>
+      </div>
+      ${ctaButton(`${appUrl}/dashboard`, "View in DEVCON+ PM")}
+    `),
+  });
+}
+
 // ─── Activity alert (to admin) ────────────────────────────────────────────────
 export interface ActivityAlertEmailOptions {
   to: string;

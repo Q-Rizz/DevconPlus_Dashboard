@@ -65,8 +65,8 @@ export async function GET(request: NextRequest) {
       for (const task of tasks) {
         if (sentIds.has(task.id)) continue;
 
-        const assignee = task.assignee as { id: string; full_name: string | null; email: string } | null;
-        const project = task.project as { id: string; name: string } | null;
+        const assignee = task.assignee as unknown as { id: string; full_name: string | null; email: string } | null;
+        const project = task.project as unknown as { id: string; name: string } | null;
         if (!assignee?.email) continue;
 
         await sendTaskReminderEmail({
