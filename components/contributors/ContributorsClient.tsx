@@ -11,6 +11,7 @@ import type { Contributor, Role } from "@/types";
 
 interface Props {
   initialContributors: Contributor[];
+  initialDeletedContributors: Contributor[];
   initialRoles: Role[];
 }
 
@@ -19,13 +20,17 @@ interface ToastState {
   type: "success" | "error";
 }
 
-export default function ContributorsClient({ initialContributors, initialRoles }: Props) {
+export default function ContributorsClient({ initialContributors, initialDeletedContributors, initialRoles }: Props) {
   const supabase = createClient();
   const [contributors, setContributors] = useState<Contributor[]>(initialContributors);
+  const [deletedContributors, setDeletedContributors] = useState<Contributor[]>(initialDeletedContributors);
   const [roles, setRoles] = useState<Role[]>(initialRoles);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Contributor | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
 
   function showToast(message: string, type: "success" | "error" = "success") {
@@ -102,6 +107,42 @@ export default function ContributorsClient({ initialContributors, initialRoles }
     setContributors((prev) => prev.filter((c) => c.id !== contributor.id));
     setRemovingId(null);
     showToast(`${contributor.full_name ?? contributor.email} removed.`);
+  }
+
+  async function handleRestore(contributor: Contributor) {
+    setRestoringId(contributor.id);
+    const { error } = await supabase
+      .from("contributors")
+      .update({ deleted_at: null })
+      .eq("id", contributor.id);
+
+    if (error) {
+      showToast("Failed to restore contributor.", "error");
+    } else {
+      setDeletedContributors((prev) => prev.filter((c) => c.id !== contributor.id));
+      setContributors((prev) => [{ ...contributor, deleted_at: null }, ...prev]);
+      showToast(`${contributor.full_name ?? contributor.email} restored.`);
+    }
+    setRestoringId(null);
+  }
+
+  async function handlePermanentDelete(contributor: Contributor) {
+    const confirmed = window.confirm(
+      `Permanently delete ${contributor.full_name ?? contributor.email}?\n\nThis removes them from the contributors list AND revokes their login. This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(contributor.id);
+    const res = await fetch(`/api/contributors/${contributor.id}`, { method: "DELETE" });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      showToast(body.error ?? "Failed to delete contributor.", "error");
+    } else {
+      setDeletedContributors((prev) => prev.filter((c) => c.id !== contributor.id));
+      showToast(`${contributor.full_name ?? contributor.email} permanently deleted.`);
+    }
+    setDeletingId(null);
   }
 
   function getRoleForContributor(contributor: Contributor): Role | undefined {
@@ -239,6 +280,85 @@ export default function ContributorsClient({ initialContributors, initialRoles }
             </table>
           )}
         </div>
+
+        {/* Deleted contributors section */}
+        {deletedContributors.length > 0 && (
+        <div className="border-t border-gray-100 shrink-0">
+          <button
+            onClick={() => setShowDeleted((v) => !v)}
+            className="w-full flex items-center gap-2 px-6 py-3 text-xs font-medium text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <svg
+              className="w-3.5 h-3.5 transition-transform duration-200"
+              style={{ transform: showDeleted ? "rotate(0deg)" : "rotate(-90deg)" }}
+              fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+            Deleted contributors ({deletedContributors.length})
+          </button>
+
+          {showDeleted && (
+            <table className="w-full text-sm">
+              <tbody className="divide-y divide-gray-50">
+                {deletedContributors.map((c) => {
+                  const role = getRoleForContributor(c);
+                  return (
+                    <tr key={c.id} className="hover:bg-red-50/30 transition-colors group opacity-60">
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0 grayscale"
+                            style={{ backgroundColor: role?.color ?? "#94a3b8" }}
+                          >
+                            {(c.full_name ?? c.email)[0].toUpperCase()}
+                          </div>
+                          <span className="font-medium text-gray-500 truncate line-through">
+                            {c.full_name ?? "—"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-400 truncate max-w-[200px]">{c.email}</td>
+                      <td className="px-4 py-3">
+                        {role ? (
+                          <span
+                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white opacity-50"
+                            style={{ backgroundColor: role.color }}
+                          >
+                            {role.name}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-300">{c.telegram_username ? `@${c.telegram_username}` : "—"}</td>
+                      <td className="px-4 py-3 text-xs text-gray-300">{c.deleted_at ? formatDate(c.deleted_at) : "—"}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
+                          <button
+                            onClick={() => handleRestore(c)}
+                            disabled={restoringId === c.id}
+                            className="px-2.5 py-1 text-xs text-brand-600 hover:bg-brand-50 rounded-lg transition-colors disabled:opacity-40"
+                          >
+                            {restoringId === c.id ? "…" : "Restore"}
+                          </button>
+                          <button
+                            onClick={() => handlePermanentDelete(c)}
+                            disabled={deletingId === c.id}
+                            className="px-2.5 py-1 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                          >
+                            {deletingId === c.id ? "…" : "Delete Forever"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+        )}
       </div>
 
       {/* Roles sidebar */}

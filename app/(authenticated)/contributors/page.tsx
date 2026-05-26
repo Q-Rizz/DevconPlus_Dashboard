@@ -17,12 +17,17 @@ export default async function ContributorsPage() {
     redirect("/dashboard");
   }
 
-  const [{ data: contributors }, { data: roles }] = await Promise.all([
+  const [{ data: contributors }, { data: deletedContributors }, { data: roles }] = await Promise.all([
     supabase
       .from("contributors")
       .select("*, role:roles(id,name,description,color,created_at)")
       .is("deleted_at", null)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("contributors")
+      .select("*, role:roles(id,name,description,color,created_at)")
+      .not("deleted_at", "is", null)
+      .order("deleted_at", { ascending: false }),
     supabase
       .from("roles")
       .select("*")
@@ -32,6 +37,7 @@ export default async function ContributorsPage() {
   return (
     <ContributorsClient
       initialContributors={(contributors as Contributor[]) ?? []}
+      initialDeletedContributors={(deletedContributors as Contributor[]) ?? []}
       initialRoles={(roles as Role[]) ?? []}
     />
   );
