@@ -868,7 +868,9 @@ function registerHandlers(bot: Bot) {
   });
 
   bot.on("message:text", (ctx) => {
-    if (ctx.message.text?.startsWith("/")) {
+    // Only reply to unknown commands in private chats — avoid spamming groups
+    const isPrivate = ctx.chat?.type === "private";
+    if (isPrivate && ctx.message.text?.startsWith("/")) {
       ctx.reply("Unknown command. Type /help to see what I can do.");
     }
   });
