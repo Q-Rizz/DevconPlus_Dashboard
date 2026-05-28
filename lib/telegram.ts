@@ -1,5 +1,5 @@
 import { Bot, InlineKeyboard } from "grammy";
-import OpenAI from "openai";
+import Groq from "groq-sdk";
 import Anthropic from "@anthropic-ai/sdk";
 import { createServiceRoleClient } from "@/lib/supabase";
 import type { TaskStatus } from "@/types";
@@ -100,11 +100,11 @@ interface VoiceIntent {
 }
 
 async function transcribeVoice(buffer: Buffer): Promise<string> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   const audioFile = new File([new Uint8Array(buffer)], "voice.ogg", { type: "audio/ogg" });
-  const result = await openai.audio.transcriptions.create({
+  const result = await groq.audio.transcriptions.create({
     file: audioFile,
-    model: "whisper-1",
+    model: "whisper-large-v3",
   });
   return result.text.trim();
 }
@@ -1046,10 +1046,10 @@ function registerHandlers(bot: Bot) {
     const contributor = await getContributor(username).catch(() => null);
     if (!contributor) return ctx.reply(notLinkedMessage());
 
-    if (!process.env.OPENAI_API_KEY || !process.env.ANTHROPIC_API_KEY) {
+    if (!process.env.GROQ_API_KEY || !process.env.ANTHROPIC_API_KEY) {
       return ctx.reply(
         "⚠️ Voice commands are not configured yet.\n" +
-        "Ask the admin to add OPENAI_API_KEY and ANTHROPIC_API_KEY to the server."
+        "Ask the admin to add GROQ_API_KEY and ANTHROPIC_API_KEY to the server."
       );
     }
 
