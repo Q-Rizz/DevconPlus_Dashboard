@@ -104,7 +104,7 @@ async function getContributor(telegramUsername: string): Promise<ContributorRow 
   const supabase = createServiceRoleClient();
   const { data } = await supabase
     .from("contributors")
-    .select("id,email,full_name,role_id,deleted_at,role:roles(name)")
+    .select("id,email,full_name,role_id,deleted_at,role:roles!role_id(name)")
     .eq("telegram_username", telegramUsername)
     .is("deleted_at", null)
     .single();
@@ -167,7 +167,7 @@ function registerHandlers(bot: Bot) {
     const supabase = createServiceRoleClient();
     const { data: tasks, error } = await supabase
       .from("tasks")
-      .select("id,title,status,due_date,project:projects(name),assignee:contributors(id,full_name,email)")
+      .select("id,title,status,due_date,project:projects!project_id(name),assignee:contributors!assignee_id(id,full_name,email)")
       .not("status", "eq", "Done")
       .order("due_date", { ascending: true, nullsFirst: false });
 
@@ -259,8 +259,8 @@ function registerHandlers(bot: Bot) {
     const supabase = createServiceRoleClient();
     const { data: tasks, error } = await supabase
       .from("tasks")
-      .select("id,title,status,due_date,project:projects(name),group:groups(name)")
-      .eq("assignee_id", contributor.id)
+      .select("id,title,status,due_date,project:projects!project_id(name),group:groups!group_id(name)")
+      .contains("assignee_ids", [contributor.id])
       .not("status", "eq", "Done")
       .order("due_date", { ascending: true, nullsFirst: false });
 
@@ -305,8 +305,8 @@ function registerHandlers(bot: Bot) {
     const supabase = createServiceRoleClient();
     const { data: tasks, error } = await supabase
       .from("tasks")
-      .select("id,title,status,due_date,project:projects(name)")
-      .eq("assignee_id", contributor.id)
+      .select("id,title,status,due_date,project:projects!project_id(name)")
+      .contains("assignee_ids", [contributor.id])
       .not("status", "eq", "Done")
       .gte("due_date", now.toISOString().split("T")[0])
       .lte("due_date", sevenDays.toISOString().split("T")[0])
@@ -349,7 +349,7 @@ function registerHandlers(bot: Bot) {
     const { data: tasks, error } = await supabase
       .from("tasks")
       .select("id,title,status,due_date")
-      .eq("assignee_id", contributor.id)
+      .contains("assignee_ids", [contributor.id])
       .ilike("title", `%${keyword}%`)
       .limit(5);
 
@@ -604,7 +604,7 @@ function registerHandlers(bot: Bot) {
     const supabase = createServiceRoleClient();
     const { data: attendeeRows, error } = await supabase
       .from("meeting_attendees")
-      .select("meeting:meetings(id,title,type,meeting_date,start_time,end_time,timezone,google_meet_link)")
+      .select("meeting:meetings!meeting_id(id,title,type,meeting_date,start_time,end_time,timezone,google_meet_link)")
       .eq("contributor_id", contributor.id)
       .gte("meeting.meeting_date", todayStr)
       .lte("meeting.meeting_date", endStr)
@@ -649,7 +649,7 @@ function registerHandlers(bot: Bot) {
     const { data: tasks } = await supabase
       .from("tasks")
       .select("id,title,status")
-      .eq("assignee_id", contributor.id)
+      .contains("assignee_ids", [contributor.id])
       .not("status", "eq", "Done")
       .order("due_date", { ascending: true, nullsFirst: false })
       .limit(5);
@@ -678,7 +678,7 @@ function registerHandlers(bot: Bot) {
     const supabase = createServiceRoleClient();
     const { data, error } = await supabase
       .from("milestones")
-      .select("id,title,status,target_date,progress:milestone_progress(progress_percent,progress_note,logged_date)")
+      .select("id,title,status,target_date,progress:milestone_progress!milestone_id(progress_percent,progress_note,logged_date)")
       .not("status", "in", '("Achieved","Missed")')
       .order("target_date", { ascending: true })
       .limit(10);
@@ -720,7 +720,7 @@ function registerHandlers(bot: Bot) {
 
     const { data, error } = await supabase
       .from("essential_sections")
-      .select("id,title,icon,entries:essential_entries(id,label,data_type,value_text,note)")
+      .select("id,title,icon,entries:essential_entries!section_id(id,label,data_type,value_text,note)")
       .order("position", { ascending: true });
 
     if (error) {
@@ -785,7 +785,7 @@ function registerHandlers(bot: Bot) {
     const supabase = createServiceRoleClient();
     const { data: tests, error } = await supabase
       .from("qa_tests")
-      .select("id,title,status,category,bug_report,project:projects(name),assignee:contributors(full_name,email)")
+      .select("id,title,status,category,bug_report,project:projects!project_id(name),assignee:contributors!assigned_to(full_name,email)")
       .order("status");
 
     if (error) {
@@ -869,7 +869,7 @@ function registerHandlers(bot: Bot) {
     const supabase = createServiceRoleClient();
     const { data: bugs, error } = await supabase
       .from("bugs")
-      .select("id,title,severity,status,project:projects(name),assignee:contributors!assigned_to(full_name,email)")
+      .select("id,title,severity,status,project:projects!project_id(name),assignee:contributors!assigned_to(full_name,email)")
       .in("status", ["Open", "In Progress"])
       .order("severity")
       .order("created_at", { ascending: false });
@@ -936,7 +936,7 @@ function registerHandlers(bot: Bot) {
     const supabase = createServiceRoleClient();
     const { data, error } = await supabase
       .from("contributors")
-      .select("id,full_name,email,role:roles(name,color)")
+      .select("id,full_name,email,role:roles!role_id(name,color)")
       .is("deleted_at", null)
       .order("full_name");
 
