@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { createServiceRoleClient } from "@/lib/supabase";
+import { linkPRToTask } from "@/lib/agent";
 
 function verifySignature(secret: string, body: string, signature: string): boolean {
   const expected = "sha256=" + createHmac("sha256", secret).update(body).digest("hex");
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
 
   const { data: connection } = await service
     .from("github_connections")
-    .select("id, webhook_secret")
+    .select("id, webhook_secret, project_id")
     .eq("repo_full_name", repoFullName)
     .single();
 
@@ -91,6 +92,16 @@ export async function POST(request: NextRequest) {
   }
 
   await service.from("github_events").insert(eventData);
+
+  // Auto-link PR to the best-matching task in the connected project
+  const conn = connection as { id: string; webhook_secret: string; project_id: string | null };
+  if (event === "pull_request" && eventData.pr_url && conn.project_id) {
+    await linkPRToTask(conn.project_id, {
+      title: String(eventData.pr_title ?? ""),
+      branch_from: (eventData.branch_from as string | null) ?? null,
+      url: String(eventData.pr_url),
+    }).catch(err => console.error("[pr-linker]", err));
+  }
 
   return NextResponse.json({ ok: true });
 }
