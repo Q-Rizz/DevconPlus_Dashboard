@@ -274,6 +274,35 @@ export interface BoardData {
   columns: BoardColumn[];
 }
 
+// ─── Risks ────────────────────────────────────────────────────────────────────
+
+export type RiskCategory = "Technical" | "Schedule" | "Resource" | "Scope" | "Quality" | "Dependency" | "Budget";
+export type RiskProbability = "Low" | "Medium" | "High";
+export type RiskImpact = "Low" | "Medium" | "High";
+export type RiskStatus = "Open" | "Mitigating" | "Resolved" | "Accepted";
+
+export interface Risk {
+  id: string;
+  project_id: string;
+  title: string;
+  description: string | null;
+  category: RiskCategory;
+  probability: RiskProbability;
+  impact: RiskImpact;
+  status: RiskStatus;
+  mitigation_plan: string | null;
+  contingency_plan: string | null;
+  owner_id: string | null;
+  linked_task_id: string | null;
+  due_date: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // joined
+  owner?: Contributor;
+  linked_task?: { id: string; title: string };
+}
+
 // ─── Auth store ───────────────────────────────────────────────────────────────
 
 export interface AuthStore {
