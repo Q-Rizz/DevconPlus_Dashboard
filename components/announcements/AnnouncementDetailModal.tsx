@@ -64,7 +64,7 @@ export default function AnnouncementDetailModal({ announcement, onClose, onEdit,
             onClick={() => onSend(announcement.id)}
             className="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700 font-medium"
           >
-            📣 Send to All Contributors
+            📣 Send to All
           </button>
         </div>
       )}
