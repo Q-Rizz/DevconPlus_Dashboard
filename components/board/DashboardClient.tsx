@@ -66,31 +66,34 @@ export default function DashboardClient({ initialProjects, contributors }: Props
   const loadBoardData = useCallback(
     async (projectId: string) => {
       setLoading(true);
-      const [{ data: grps }, { data: tasks }] = await Promise.all([
-        supabase
-          .from("groups")
-          .select("*")
-          .eq("project_id", projectId)
-          .order("position"),
-        supabase
-          .from("tasks")
-          .select(
-            "*, assignee:contributors(id,email,full_name,role_id,telegram_username,created_at), attachments:task_attachments(*)"
-          )
-          .eq("project_id", projectId)
-          .order("position"),
-      ]);
+      try {
+        const [{ data: grps }, { data: tasks }] = await Promise.all([
+          supabase
+            .from("groups")
+            .select("*")
+            .eq("project_id", projectId)
+            .order("position"),
+          supabase
+            .from("tasks")
+            .select(
+              "*, assignee:contributors(id,email,full_name,role_id,telegram_username,created_at), attachments:task_attachments(*)"
+            )
+            .eq("project_id", projectId)
+            .order("position"),
+        ]);
 
-      const byGroup: Record<string, Task[]> = {};
-      for (const g of grps ?? []) {
-        byGroup[g.id] = (tasks ?? []).filter(
-          (t: Task) => t.group_id === g.id
-        );
+        const byGroup: Record<string, Task[]> = {};
+        for (const g of grps ?? []) {
+          byGroup[g.id] = (tasks ?? []).filter(
+            (t: Task) => t.group_id === g.id
+          );
+        }
+
+        setGroups((grps as Group[]) ?? []);
+        setTasksByGroup(byGroup);
+      } finally {
+        setLoading(false);
       }
-
-      setGroups((grps as Group[]) ?? []);
-      setTasksByGroup(byGroup);
-      setLoading(false);
     },
     [supabase]
   );

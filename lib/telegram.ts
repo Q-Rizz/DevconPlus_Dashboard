@@ -232,7 +232,7 @@ function registerHandlers(bot: Bot) {
       "😱 Your meeting starts in 15 minutes? Kibot.\n" +
       "😱 You have 7 overdue tasks? Huge kibot.\n\n" +
       "I live in your Telegram. I watch the DEVCON+ PM board. " +
-      "I know your deadlines before you do. I will always find you.\n\n" +
+      "I know your deadlines before you do. I WILL ALWAYS FIND YOU.\n\n" +
       "But I am also here when you need me:\n" +
       "• Check your tasks, deadlines, QA, bugs, meetings, milestones\n" +
       "• Update task and QA statuses without opening the dashboard\n" +
