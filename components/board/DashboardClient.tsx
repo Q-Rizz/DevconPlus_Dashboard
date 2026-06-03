@@ -49,6 +49,7 @@ export default function DashboardClient({ initialProjects, contributors }: Props
   );
 
   const currentContributor = useAuthStore((s) => s.contributor);
+  const authReady = useAuthStore((s) => s.authReady);
   const canEdit = !!currentContributor;
 
   function logActivity(action: string, entity: string, entityTitle: string) {
@@ -99,13 +100,13 @@ export default function DashboardClient({ initialProjects, contributors }: Props
   );
 
   useEffect(() => {
-    if (!selectedProjectId) {
+    if (!authReady || !selectedProjectId) {
       setGroups([]);
       setTasksByGroup({});
       return;
     }
     loadBoardData(selectedProjectId);
-  }, [selectedProjectId, loadBoardData]);
+  }, [selectedProjectId, loadBoardData, authReady]);
 
   // ─── Realtime subscription ──────────────────────────────────────────────────
   useEffect(() => {
@@ -562,7 +563,7 @@ export default function DashboardClient({ initialProjects, contributors }: Props
             <DashboardOverview tasks={allTasks} currentContributor={currentContributor} selectedProjectId={selectedProjectId ?? ""} />
             {selectedProject ? (
               <div className="flex-1 overflow-hidden">
-                <ProjectBoard project={selectedProject} loading={loading} />
+                <ProjectBoard project={selectedProject} loading={loading || !authReady} />
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center flex-1 text-gray-400 gap-3">

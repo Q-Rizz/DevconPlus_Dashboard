@@ -57,6 +57,7 @@ async function resolveSession(
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const setContributor = useAuthStore((s) => s.setContributor);
   const setGuestEmail = useAuthStore((s) => s.setGuestEmail);
+  const setAuthReady = useAuthStore((s) => s.setAuthReady);
   const router = useRouter();
 
   useEffect(() => {
@@ -79,7 +80,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     // Mark this browser session as alive so refreshes don't sign the user out
     sessionStorage.setItem("devcon-session-alive", "1");
 
-    resolveSession(supabase, setContributor, setGuestEmail);
+    resolveSession(supabase, setContributor, setGuestEmail)
+      .catch(() => {/* silently fall through — guest mode is fine */})
+      .finally(() => setAuthReady(true));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_OUT") {
@@ -93,7 +96,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     });
 
     return () => subscription.unsubscribe();
-  }, [router, setContributor, setGuestEmail]);
+  }, [router, setContributor, setGuestEmail, setAuthReady]);
 
   return <>{children}</>;
 }

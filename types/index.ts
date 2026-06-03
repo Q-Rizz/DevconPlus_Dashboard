@@ -340,8 +340,11 @@ export interface AuthStore {
   contributor: Contributor | null;
   /** Email of a Supabase-authenticated user whose email is NOT in the contributors table. */
   guestEmail: string | null;
+  /** True once AuthProvider has finished resolving the session. Prevents board queries from racing with signOut. */
+  authReady: boolean;
   setContributor: (c: Contributor | null) => void;
   setGuestEmail: (email: string | null) => void;
+  setAuthReady: (ready: boolean) => void;
 }
 
 // ─── API response wrappers ────────────────────────────────────────────────────
