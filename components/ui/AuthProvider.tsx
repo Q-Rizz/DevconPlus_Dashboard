@@ -69,11 +69,14 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const sessionAlive = sessionStorage.getItem("devcon-session-alive");
 
     if (noRemember && !sessionAlive) {
-      supabase.auth.signOut().then(() => {
-        setContributor(null);
-        setGuestEmail(null);
-        router.push("/login");
-      });
+      supabase.auth.signOut()
+        .catch(() => {})
+        .finally(() => {
+          setContributor(null);
+          setGuestEmail(null);
+          setAuthReady(true);
+          router.push("/login");
+        });
       return;
     }
 
