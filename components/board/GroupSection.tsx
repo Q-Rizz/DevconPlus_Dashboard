@@ -17,10 +17,12 @@ const COL_HEADERS = [
   { label: "Task",       className: "min-w-[280px] w-[280px]" },
   { label: "Assignee",   className: "min-w-[160px] w-[160px]" },
   { label: "Status",     className: "min-w-[148px] w-[148px]" },
+  { label: "Priority",   className: "min-w-[110px] w-[110px]" },
   { label: "Timeline",   className: "min-w-[220px] w-[220px]" },
   { label: "Due Date",   className: "min-w-[116px] w-[116px]" },
   { label: "Attachment", className: "min-w-[96px]  w-[96px]"  },
   { label: "PR Link",    className: "min-w-[160px]"           },
+  { label: "Comments",   className: "min-w-[100px]"           },
 ];
 
 const COLOR_PALETTE = [

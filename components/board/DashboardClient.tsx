@@ -286,7 +286,7 @@ export default function DashboardClient({ initialProjects, contributors }: Props
   }
 
   const SIGNIFICANT_TASK_FIELDS = new Set([
-    "title", "status", "assignee_id", "assignee_ids", "group_id", "due_date", "description", "pr_link",
+    "title", "status", "priority", "assignee_id", "assignee_ids", "group_id", "due_date", "description", "pr_link",
     "timeline_start", "timeline_end",
   ]);
 

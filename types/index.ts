@@ -48,6 +48,8 @@ export type TaskStatus =
   | "I am Stuck"
   | "For Improvements";
 
+export type TaskPriority = "Low" | "Medium" | "High" | "Critical";
+
 export interface Task {
   id: string;
   group_id: string;
@@ -57,6 +59,7 @@ export interface Task {
   assignee_id: string | null;
   assignee_ids: string[];
   status: TaskStatus;
+  priority: TaskPriority;
   timeline_start: string | null;
   timeline_end: string | null;
   due_date: string | null;
@@ -67,6 +70,16 @@ export interface Task {
   // joined
   assignee?: Contributor;
   attachments?: TaskAttachment[];
+}
+
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  author_id: string | null;
+  body: string;
+  created_at: string;
+  // joined
+  author?: Contributor;
 }
 
 export interface TaskAttachment {
@@ -473,7 +486,7 @@ export type Database = {
         Row: {
           id: string; group_id: string; project_id: string;
           title: string; description: string | null;
-          assignee_id: string | null; status: string;
+          assignee_id: string | null; status: string; priority: string;
           timeline_start: string | null; timeline_end: string | null;
           due_date: string | null; pr_link: string | null;
           position: number; created_at: string; updated_at: string;
@@ -481,7 +494,7 @@ export type Database = {
         Insert: {
           id?: string; group_id: string; project_id: string;
           title: string; description?: string | null;
-          assignee_id?: string | null; status?: string;
+          assignee_id?: string | null; status?: string; priority?: string;
           timeline_start?: string | null; timeline_end?: string | null;
           due_date?: string | null; pr_link?: string | null;
           position?: number; created_at?: string; updated_at?: string;
@@ -489,10 +502,25 @@ export type Database = {
         Update: {
           id?: string; group_id?: string; project_id?: string;
           title?: string; description?: string | null;
-          assignee_id?: string | null; status?: string;
+          assignee_id?: string | null; status?: string; priority?: string;
           timeline_start?: string | null; timeline_end?: string | null;
           due_date?: string | null; pr_link?: string | null;
           position?: number; created_at?: string; updated_at?: string;
+        };
+        Relationships: [];
+      };
+      task_comments: {
+        Row: {
+          id: string; task_id: string; author_id: string | null;
+          body: string; created_at: string;
+        };
+        Insert: {
+          id?: string; task_id: string; author_id?: string | null;
+          body: string; created_at?: string;
+        };
+        Update: {
+          id?: string; task_id?: string; author_id?: string | null;
+          body?: string; created_at?: string;
         };
         Relationships: [];
       };

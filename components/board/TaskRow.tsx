@@ -7,10 +7,12 @@ import { useBoardContext } from "./BoardContext";
 import TitleCell from "./cells/TitleCell";
 import AssigneeCell from "./cells/AssigneeCell";
 import StatusCell from "./cells/StatusCell";
+import PriorityCell from "./cells/PriorityCell";
 import TimelineCell from "./cells/TimelineCell";
 import DueDateCell from "./cells/DueDateCell";
 import AttachmentCell from "./cells/AttachmentCell";
 import PRLinkCell from "./cells/PRLinkCell";
+import CommentsCell from "./cells/CommentsCell";
 import ConfirmModal from "./modals/ConfirmModal";
 import type { Task, TaskStatus } from "@/types";
 
@@ -97,17 +99,19 @@ export default function TaskRow({ task, groupId }: Props) {
         />
         <AssigneeCell task={task} onUpdate={patch} />
         <StatusCell task={task} onUpdate={patch} />
+        <PriorityCell task={task} onUpdate={patch} />
         <TimelineCell task={task} onUpdate={patch} />
         <DueDateCell task={task} onUpdate={patch} />
         <AttachmentCell task={task} groupId={groupId} />
         <PRLinkCell task={task} onUpdate={patch} />
+        <CommentsCell task={task} />
       </tr>
 
       {/* Expanded description row */}
       {expanded && (
         <tr className="border-b border-gray-100 bg-gray-50/40">
           <td />
-          <td colSpan={7} className="px-3 py-2.5">
+          <td colSpan={9} className="px-3 py-2.5">
             <textarea
               defaultValue={task.description ?? ""}
               onBlur={(e) => {
