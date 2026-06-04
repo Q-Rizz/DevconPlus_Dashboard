@@ -5,20 +5,16 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/store";
 import type { Contributor } from "@/types";
+import type { User } from "@supabase/supabase-js";
 
-async function resolveSession(
+// Looks up (or creates) the contributor record for an already-authenticated user.
+// Does NOT call getUser() — the caller provides the user from the session event.
+async function resolveContributor(
   supabase: ReturnType<typeof createClient>,
+  user: User,
   setContributor: (c: Contributor | null) => void,
   setGuestEmail: (e: string | null) => void
 ) {
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    setContributor(null);
-    setGuestEmail(null);
-    return;
-  }
-
   const { data: contributor } = await supabase
     .from("contributors")
     .select("*, role:roles(*)")
@@ -32,7 +28,7 @@ async function resolveSession(
     return;
   }
 
-  // No contributor record yet — auto-create from auth metadata (new sign-up)
+  // Auto-create from auth metadata (new sign-up flow)
   const fullName =
     (user.user_metadata?.full_name as string | undefined) ??
     (user.user_metadata?.name as string | undefined) ??
@@ -48,7 +44,6 @@ async function resolveSession(
     setGuestEmail(null);
     setContributor(created as Contributor);
   } else {
-    // Insert may be blocked by RLS — fall back to guest mode
     setContributor(null);
     setGuestEmail(user.email ?? null);
   }
@@ -64,7 +59,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const supabase = createClient();
 
     // Remember-me check: if the user opted out and this is a fresh browser
-    // session (sessionStorage cleared), sign them out immediately.
+    // session (sessionStorage is per-tab and cleared on browser close), sign
+    // them out immediately.
     const noRemember = localStorage.getItem("devcon-no-remember");
     const sessionAlive = sessionStorage.getItem("devcon-session-alive");
 
@@ -80,23 +76,40 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       return;
     }
 
-    // Mark this browser session as alive so refreshes don't sign the user out
     sessionStorage.setItem("devcon-session-alive", "1");
 
-    resolveSession(supabase, setContributor, setGuestEmail)
-      .catch(() => {/* silently fall through — guest mode is fine */})
-      .finally(() => setAuthReady(true));
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_OUT") {
-        setContributor(null);
-        setGuestEmail(null);
-        router.push("/login");
-      } else if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session?.user) {
-        sessionStorage.setItem("devcon-session-alive", "1");
-        await resolveSession(supabase, setContributor, setGuestEmail);
+    // onAuthStateChange fires INITIAL_SESSION synchronously from the local
+    // cookie — no JWT round-trip to the server, so authReady is set quickly.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "INITIAL_SESSION") {
+          try {
+            if (session?.user) {
+              await resolveContributor(supabase, session.user, setContributor, setGuestEmail);
+            } else {
+              setContributor(null);
+              setGuestEmail(null);
+            }
+          } catch {
+            setContributor(null);
+            setGuestEmail(null);
+          } finally {
+            setAuthReady(true);
+          }
+        } else if (event === "SIGNED_OUT") {
+          setContributor(null);
+          setGuestEmail(null);
+          router.push("/login");
+        } else if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session?.user) {
+          sessionStorage.setItem("devcon-session-alive", "1");
+          try {
+            await resolveContributor(supabase, session.user, setContributor, setGuestEmail);
+          } catch {
+            // silent — user stays in current state
+          }
+        }
       }
-    });
+    );
 
     return () => subscription.unsubscribe();
   }, [router, setContributor, setGuestEmail, setAuthReady]);
