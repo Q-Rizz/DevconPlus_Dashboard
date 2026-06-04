@@ -12,6 +12,7 @@ import TimelineCell from "./cells/TimelineCell";
 import DueDateCell from "./cells/DueDateCell";
 import AttachmentCell from "./cells/AttachmentCell";
 import PRLinkCell from "./cells/PRLinkCell";
+import DefinitionOfDoneCell from "./cells/DefinitionOfDoneCell";
 import CommentsCell from "./cells/CommentsCell";
 import ConfirmModal from "./modals/ConfirmModal";
 import type { Task, TaskStatus } from "@/types";
@@ -104,6 +105,7 @@ export default function TaskRow({ task, groupId }: Props) {
         <DueDateCell task={task} onUpdate={patch} />
         <AttachmentCell task={task} groupId={groupId} />
         <PRLinkCell task={task} onUpdate={patch} />
+        <DefinitionOfDoneCell task={task} onUpdate={patch} />
         <CommentsCell task={task} />
       </tr>
 
@@ -111,7 +113,7 @@ export default function TaskRow({ task, groupId }: Props) {
       {expanded && (
         <tr className="border-b border-gray-100 bg-gray-50/40">
           <td />
-          <td colSpan={9} className="px-3 py-2.5">
+          <td colSpan={10} className="px-3 py-2.5">
             <textarea
               defaultValue={task.description ?? ""}
               onBlur={(e) => {

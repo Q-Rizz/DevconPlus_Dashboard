@@ -60,6 +60,7 @@ export interface Task {
   assignee_ids: string[];
   status: TaskStatus;
   priority: TaskPriority;
+  definition_of_done: string | null;
   timeline_start: string | null;
   timeline_end: string | null;
   due_date: string | null;
@@ -487,6 +488,7 @@ export type Database = {
           id: string; group_id: string; project_id: string;
           title: string; description: string | null;
           assignee_id: string | null; status: string; priority: string;
+          definition_of_done: string | null;
           timeline_start: string | null; timeline_end: string | null;
           due_date: string | null; pr_link: string | null;
           position: number; created_at: string; updated_at: string;
@@ -495,6 +497,7 @@ export type Database = {
           id?: string; group_id: string; project_id: string;
           title: string; description?: string | null;
           assignee_id?: string | null; status?: string; priority?: string;
+          definition_of_done?: string | null;
           timeline_start?: string | null; timeline_end?: string | null;
           due_date?: string | null; pr_link?: string | null;
           position?: number; created_at?: string; updated_at?: string;
@@ -503,6 +506,7 @@ export type Database = {
           id?: string; group_id?: string; project_id?: string;
           title?: string; description?: string | null;
           assignee_id?: string | null; status?: string; priority?: string;
+          definition_of_done?: string | null;
           timeline_start?: string | null; timeline_end?: string | null;
           due_date?: string | null; pr_link?: string | null;
           position?: number; created_at?: string; updated_at?: string;

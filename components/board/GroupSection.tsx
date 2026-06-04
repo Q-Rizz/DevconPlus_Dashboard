@@ -21,8 +21,9 @@ const COL_HEADERS = [
   { label: "Timeline",   className: "min-w-[220px] w-[220px]" },
   { label: "Due Date",   className: "min-w-[116px] w-[116px]" },
   { label: "Attachment", className: "min-w-[96px]  w-[96px]"  },
-  { label: "PR Link",    className: "min-w-[160px]"           },
-  { label: "Comments",   className: "min-w-[100px]"           },
+  { label: "PR Link",             className: "min-w-[160px]"           },
+  { label: "Definition of Done", className: "min-w-[180px]"           },
+  { label: "Comments",            className: "min-w-[100px]"           },
 ];
 
 const COLOR_PALETTE = [
