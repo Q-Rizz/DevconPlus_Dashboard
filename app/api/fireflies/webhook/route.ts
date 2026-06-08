@@ -49,6 +49,10 @@ function verifySignature(rawBody: string, signature: string, secret: string): bo
   }
 }
 
+export async function GET() {
+  return NextResponse.json({ ok: true, message: "Fireflies webhook endpoint is reachable" });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
@@ -75,6 +79,14 @@ export async function POST(request: NextRequest) {
 
     const payload = JSON.parse(rawBody) as FirefliesPayload;
 
+    console.log(`[fireflies/webhook] eventType=${payload.eventType ?? "unknown"} meetingId=${payload.meetingId ?? "unknown"}`);
+
+    // Only process completed transcriptions
+    if (payload.eventType && payload.eventType !== "Transcription completed") {
+      console.log(`[fireflies/webhook] Skipping event type: ${payload.eventType}`);
+      return NextResponse.json({ ok: true, message: `Skipped event: ${payload.eventType}` });
+    }
+
     // Normalize: some plans nest data under payload.transcript
     const data = payload.transcript ?? payload;
     const title = data.title ?? payload.title ?? "Team Meeting";
@@ -84,21 +96,24 @@ export async function POST(request: NextRequest) {
     const participants = data.participants ?? payload.participants ?? [];
     const dateRaw = data.date ?? payload.date ?? new Date().toISOString();
 
-    // Skip if there's no summary content at all
-    if (
-      !summary ||
-      (!summary.gist && !summary.short_summary && !summary.overview && !summary.bullet_gist)
-    ) {
-      console.log("[fireflies/webhook] No summary in payload — skipping");
+    // Skip only if there is truly no summary object at all
+    if (!summary) {
+      console.log("[fireflies/webhook] No summary object in payload — skipping", JSON.stringify(payload).slice(0, 300));
       return NextResponse.json({ ok: true, message: "No summary content, nothing to post" });
     }
 
-    // Build raw context for Groq
+    const dateStr = new Date(dateRaw).toLocaleDateString("en-PH", {
+      weekday: "long", year: "numeric", month: "long", day: "numeric",
+      timeZone: "Asia/Manila",
+    });
+
+    // Build raw context from whatever fields Fireflies provided
     const parts: string[] = [];
     if (summary.gist) parts.push(`Gist: ${summary.gist}`);
     if (summary.short_summary) parts.push(`Summary: ${summary.short_summary}`);
     if (summary.overview) parts.push(`Overview: ${summary.overview}`);
     if (summary.bullet_gist) parts.push(`Key Points:\n${summary.bullet_gist}`);
+    if (summary.outline) parts.push(`Outline:\n${summary.outline}`);
     if (summary.action_items) parts.push(`Action Items:\n${summary.action_items}`);
     if (summary.keywords) parts.push(`Keywords: ${summary.keywords}`);
     if (participants.length > 0) parts.push(`Attendees: ${participants.join(", ")}`);
@@ -106,42 +121,47 @@ export async function POST(request: NextRequest) {
 
     const rawContext = parts.join("\n\n");
 
-    if (!process.env.GROQ_API_KEY) {
-      return NextResponse.json({ ok: false, error: "GROQ_API_KEY not configured" }, { status: 503 });
+    if (!rawContext.trim()) {
+      console.log("[fireflies/webhook] Summary object present but all fields empty — skipping");
+      return NextResponse.json({ ok: true, message: "No summary content, nothing to post" });
     }
 
-    const dateStr = new Date(dateRaw).toLocaleDateString("en-PH", {
-      weekday: "long", year: "numeric", month: "long", day: "numeric",
-    });
-
-    // Use Groq to format as a clean announcement
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-    const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      max_tokens: 500,
-      temperature: 0.4,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a project management assistant for DEVCON+ Philippines. " +
-            "Format the provided meeting summary into a clean team announcement.\n\n" +
-            "Rules:\n" +
-            "- One-line opening that captures what the meeting was about\n" +
-            "- 3–5 key discussion points using • bullets\n" +
-            "- Action items prefixed with ✅ (only if present in the data)\n" +
-            "- Keep it under 220 words\n" +
-            "- Friendly and concise — this is a tight-knit team\n" +
-            "- Do NOT add greetings, sign-offs, or dates (those are added automatically)",
-        },
-        {
-          role: "user",
-          content: `Meeting: ${title}\nDate: ${dateStr}\n\n${rawContext}`,
-        },
-      ],
-    });
-
-    const body = completion.choices[0]?.message?.content?.trim() ?? rawContext;
+    // Try Groq formatting — fall back to raw Fireflies content if unavailable or failing
+    let body = rawContext;
+    if (process.env.GROQ_API_KEY) {
+      try {
+        const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        const completion = await groq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          max_tokens: 500,
+          temperature: 0.4,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a project management assistant for DEVCON+ Philippines. " +
+                "Format the provided meeting summary into a clean team announcement.\n\n" +
+                "Rules:\n" +
+                "- One-line opening that captures what the meeting was about\n" +
+                "- 3–5 key discussion points using • bullets\n" +
+                "- Action items prefixed with ✅ (only if present in the data)\n" +
+                "- Keep it under 220 words\n" +
+                "- Friendly and concise — this is a tight-knit team\n" +
+                "- Do NOT add greetings, sign-offs, or dates (those are added automatically)",
+            },
+            {
+              role: "user",
+              content: `Meeting: ${title}\nDate: ${dateStr}\n\n${rawContext}`,
+            },
+          ],
+        });
+        body = completion.choices[0]?.message?.content?.trim() || rawContext;
+      } catch (groqErr) {
+        console.warn("[fireflies/webhook] Groq formatting failed, using raw summary:", groqErr);
+      }
+    } else {
+      console.warn("[fireflies/webhook] GROQ_API_KEY not set — saving raw Fireflies summary");
+    }
 
     // Save as announcement in Supabase
     const supabase = createServiceRoleClient();
