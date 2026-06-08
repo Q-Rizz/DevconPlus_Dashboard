@@ -68,7 +68,10 @@ export default function DashboardClient({ initialProjects, contributors }: Props
     async (projectId: string) => {
       setLoading(true);
       try {
-        const [{ data: grps }, { data: tasks }] = await Promise.all([
+        const [
+          { data: grps, error: grpsErr },
+          { data: tasks, error: tasksErr },
+        ] = await Promise.all([
           supabase
             .from("groups")
             .select("*")
@@ -77,11 +80,14 @@ export default function DashboardClient({ initialProjects, contributors }: Props
           supabase
             .from("tasks")
             .select(
-              "*, assignee:contributors(id,email,full_name,role_id,telegram_username,created_at), attachments:task_attachments(*)"
+              "*, assignee:contributors!assignee_id(id,email,full_name,role_id,telegram_username,created_at), attachments:task_attachments(*)"
             )
             .eq("project_id", projectId)
             .order("position"),
         ]);
+
+        if (grpsErr) console.error("[loadBoardData] groups error:", grpsErr);
+        if (tasksErr) console.error("[loadBoardData] tasks error:", tasksErr);
 
         const byGroup: Record<string, Task[]> = {};
         for (const g of grps ?? []) {
@@ -92,6 +98,8 @@ export default function DashboardClient({ initialProjects, contributors }: Props
 
         setGroups((grps as Group[]) ?? []);
         setTasksByGroup(byGroup);
+      } catch (err) {
+        console.error("[loadBoardData] unexpected error:", err);
       } finally {
         setLoading(false);
       }

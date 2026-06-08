@@ -85,7 +85,15 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         if (event === "INITIAL_SESSION") {
           try {
             if (session?.user) {
-              await resolveContributor(supabase, session.user, setContributor, setGuestEmail);
+              // Race against a timeout so authReady is always set even if
+              // the contributors query hangs (e.g. network issues).
+              const resolveTimeout = new Promise<void>((_, reject) =>
+                setTimeout(() => reject(new Error("auth_resolve_timeout")), 10000)
+              );
+              await Promise.race([
+                resolveContributor(supabase, session.user, setContributor, setGuestEmail),
+                resolveTimeout,
+              ]);
             } else {
               setContributor(null);
               setGuestEmail(null);
