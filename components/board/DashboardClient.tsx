@@ -25,13 +25,16 @@ import DashboardOverview from "./DashboardOverview";
 import NewProjectModal from "./modals/NewProjectModal";
 import { useAuthStore } from "@/lib/store";
 
+// Single browser client shared across all renders — avoids creating a new
+// GoTrue instance on every render and prevents auth token conflicts.
+const supabase = createClient();
+
 interface Props {
   initialProjects: Project[];
   contributors: Contributor[];
 }
 
 export default function DashboardClient({ initialProjects, contributors }: Props) {
-  const supabase = useRef(createClient()).current;
 
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
@@ -53,6 +56,11 @@ export default function DashboardClient({ initialProjects, contributors }: Props
   const authReady = useAuthStore((s) => s.authReady);
   const canEdit = !!currentContributor;
 
+  // Monotonically-increasing counter so each loadBoardData invocation has a
+  // unique ID. Any invocation that finds a newer ID in flight simply discards
+  // its results, preventing stale project data from overwriting fresher data.
+  const loadIdRef = useRef(0);
+
   function logActivity(action: string, entity: string, entityTitle: string) {
     const actorName =
       currentContributor?.full_name ?? currentContributor?.email ?? "Guest";
@@ -67,16 +75,22 @@ export default function DashboardClient({ initialProjects, contributors }: Props
   // ─── Load board data ────────────────────────────────────────────────────────
   const loadBoardData = useCallback(
     async (projectId: string) => {
+      const loadId = ++loadIdRef.current;
+
       setLoading(true);
       setLoadError(false);
-      // Safety valve: clear loading state after 8 s regardless of query outcome.
-      // Supabase can queue queries while waiting for a token refresh; if that
-      // refresh hangs (e.g. auth endpoint unreachable), Promise.all never
-      // resolves and the spinner would spin forever without this guard.
+
+      // Safety valve: if the Supabase query hangs (e.g. token refresh stuck,
+      // cold-start) this timer clears the spinner and shows an error after 8 s.
+      // The guard `loadIdRef.current === loadId` ensures a later load's timer
+      // doesn't fire for this stale call.
       const safetyTimer = setTimeout(() => {
-        setLoading(false);
-        setLoadError(true);
+        if (loadIdRef.current === loadId) {
+          setLoading(false);
+          setLoadError(true);
+        }
       }, 8_000);
+
       try {
         const [
           { data: grps, error: grpsErr },
@@ -95,6 +109,9 @@ export default function DashboardClient({ initialProjects, contributors }: Props
             .eq("project_id", projectId)
             .order("position"),
         ]);
+
+        // A newer load has already started; discard these (now stale) results.
+        if (loadIdRef.current !== loadId) return;
 
         if (grpsErr) {
           console.error("[loadBoardData] groups error:", grpsErr);
@@ -116,13 +133,15 @@ export default function DashboardClient({ initialProjects, contributors }: Props
         setTasksByGroup(byGroup);
       } catch (err) {
         console.error("[loadBoardData] unexpected error:", err);
-        setLoadError(true);
+        if (loadIdRef.current === loadId) setLoadError(true);
       } finally {
         clearTimeout(safetyTimer);
-        setLoading(false);
+        if (loadIdRef.current === loadId) setLoading(false);
       }
     },
-    [supabase]
+    // supabase is a module-level constant — no reactive dependency needed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
   useEffect(() => {
@@ -184,7 +203,7 @@ export default function DashboardClient({ initialProjects, contributors }: Props
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedProjectId, supabase]);
+  }, [selectedProjectId]);
 
   // ─── DnD ───────────────────────────────────────────────────────────────────
   function handleDragEnd(event: DragEndEvent) {
