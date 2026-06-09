@@ -256,7 +256,7 @@ function registerHandlers(bot: Bot) {
         "/mytasks — Your currently assigned tasks\n" +
         "/deadlines — Tasks due in the next 7 days\n" +
         "/status <keyword> — Search & update a task status\n" +
-        "/standup — Your active tasks for standup\n\n" +
+        "/standup — Full team daily standup report\n\n" +
         "*QA & Bugs*\n" +
         "/qa — QA test summary by project\n" +
         "/qastatus — Search & update a QA test status\n" +
@@ -267,7 +267,10 @@ function registerHandlers(bot: Bot) {
         "/team — Team members and roles\n" +
         "/essentials [term] — Browse or search the essentials wiki\n\n" +
         "*PM Only*\n" +
-        "/announce <message> — Broadcast to all contributors\n\n" +
+        "/announce <message> — Broadcast to all contributors\n" +
+        "/riskscan — Run the risk scanner and post findings\n" +
+        "/escalate — Send overdue escalation DMs to assignees\n" +
+        "/prlink — Scan and link recent GitHub PRs to tasks\n\n"  +
         "/iamkibot — Who is Kibot\\?\n" +
         "/help — Show this message",
       { parse_mode: "MarkdownV2" }
@@ -702,6 +705,89 @@ function registerHandlers(bot: Bot) {
     );
   });
 
+  // /riskscan — PM only: trigger risk scanner and post findings
+  bot.command("riskscan", async (ctx) => {
+    const username = ctx.from?.username;
+    if (!username) return ctx.reply(noUsernameMessage());
+
+    const contributor = await getContributor(username).catch(() => null);
+    if (!contributor) return ctx.reply(notLinkedMessage());
+
+    const roleName = contributor.role?.name?.toLowerCase() ?? "";
+    const isPM = roleName.includes("product manager") || roleName.includes("project manager");
+    if (!isPM) return ctx.reply("⚠️ Only Project Managers can run the risk scanner.");
+
+    await ctx.reply("🔍 Running risk scan...");
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const res = await fetch(`${appUrl}/api/agent/risk-scan`, { method: "POST" });
+      const data = await res.json() as { ok?: boolean; created?: number; message?: string };
+      if (data.created === 0) {
+        await ctx.reply("✅ Risk scan complete — no new risks detected. Project health looks good.");
+      } else {
+        await ctx.reply(`⚠️ Risk scan complete — ${data.created} new risk(s) detected and logged to the Risk page.`);
+      }
+    } catch (err) {
+      console.error("[/riskscan]", err);
+      await ctx.reply("❌ Risk scan failed. Check the dashboard.");
+    }
+  });
+
+  // /escalate — PM only: trigger overdue escalation DMs to assignees
+  bot.command("escalate", async (ctx) => {
+    const username = ctx.from?.username;
+    if (!username) return ctx.reply(noUsernameMessage());
+
+    const contributor = await getContributor(username).catch(() => null);
+    if (!contributor) return ctx.reply(notLinkedMessage());
+
+    const roleName = contributor.role?.name?.toLowerCase() ?? "";
+    const isPM = roleName.includes("product manager") || roleName.includes("project manager");
+    if (!isPM) return ctx.reply("⚠️ Only Project Managers can trigger overdue escalation.");
+
+    await ctx.reply("📣 Running overdue escalation...");
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const res = await fetch(`${appUrl}/api/agent/overdue-escalation`, { method: "POST" });
+      const data = await res.json() as { ok?: boolean; escalated?: number; contributors?: number; message?: string };
+      if (data.escalated === 0) {
+        await ctx.reply(`✅ Escalation complete — ${data.message ?? "no stagnant overdue tasks found."}`);
+      } else {
+        await ctx.reply(`✅ Escalation complete — ${data.escalated} overdue task(s) across ${data.contributors ?? 0} contributor(s) escalated via Telegram.`);
+      }
+    } catch (err) {
+      console.error("[/escalate]", err);
+      await ctx.reply("❌ Escalation failed. Check the dashboard.");
+    }
+  });
+
+  // /prlink — PM only: scan and link recent GitHub PRs to tasks
+  bot.command("prlink", async (ctx) => {
+    const username = ctx.from?.username;
+    if (!username) return ctx.reply(noUsernameMessage());
+
+    const contributor = await getContributor(username).catch(() => null);
+    if (!contributor) return ctx.reply(notLinkedMessage());
+
+    const roleName = contributor.role?.name?.toLowerCase() ?? "";
+    const isPM = roleName.includes("product manager") || roleName.includes("project manager");
+    if (!isPM) return ctx.reply("⚠️ Only Project Managers can trigger the PR linker.");
+
+    await ctx.reply("🔗 Scanning recent PRs...");
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const res = await fetch(`${appUrl}/api/agent/pr-linker`, { method: "POST" });
+      const data = await res.json() as { ok?: boolean; scanned?: number; linked?: number };
+      const skipped = (data.scanned ?? 0) - (data.linked ?? 0);
+      await ctx.reply(
+        `✅ PR scan complete — ${data.linked ?? 0} PR(s) linked to tasks, ${skipped} scanned with no match or already linked.`
+      );
+    } catch (err) {
+      console.error("[/prlink]", err);
+      await ctx.reply("❌ PR linker failed. Check the dashboard.");
+    }
+  });
+
   // /meetings — list the contributor's upcoming meetings (next 7 days)
   bot.command("meetings", async (ctx) => {
     const username = ctx.from?.username;
@@ -752,35 +838,16 @@ function registerHandlers(bot: Bot) {
     await ctx.reply(`📅 Your upcoming meetings (${meetings.length}):\n\n${lines.join("\n\n")}`);
   });
 
-  // /standup — prompt contributor to post today's standup update
+  // /standup — post the full team daily standup report
   bot.command("standup", async (ctx) => {
-    const username = ctx.from?.username;
-    if (!username) return ctx.reply(noUsernameMessage());
-
-    const contributor = await getContributor(username).catch(() => null);
-    if (!contributor) return ctx.reply(notLinkedMessage());
-
-    const supabase = createServiceRoleClient();
-    const { data: tasks } = await supabase
-      .from("tasks")
-      .select("id,title,status")
-      .contains("assignee_ids", [contributor.id])
-      .not("status", "eq", "Done")
-      .order("due_date", { ascending: true, nullsFirst: false })
-      .limit(5);
-
-    const rows = (tasks as unknown as TaskRow[]) ?? [];
-    const name = contributor.full_name?.split(" ")[0] ?? contributor.email;
-
-    const taskLines = rows.length > 0
-      ? rows.map((t, i) => `${i + 1}. ${t.title} — ${t.status}`).join("\n")
-      : "No active tasks right now — you're free! 🎉";
-
-    await ctx.reply(
-      `Hey ${name}! 👋 Daily kibot check-in — here's what's waiting for you:\n\n` +
-      taskLines +
-      "\n\nUse /status <keyword> to update any task, or head to the dashboard if the list is giving you actual kibot."
-    );
+    try {
+      const { buildDailyStandup } = await import("@/lib/buildStandup");
+      const text = await buildDailyStandup();
+      await ctx.reply(text.slice(0, 4096));
+    } catch (err) {
+      console.error("[/standup]", err);
+      await ctx.reply("❌ Couldn't generate the standup right now. Try again or check the dashboard.");
+    }
   });
 
   // /milestones — show current milestone statuses and progress
