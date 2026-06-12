@@ -71,7 +71,11 @@ export async function POST(request: NextRequest) {
 
   let payload: Record<string, unknown>;
   try {
-    payload = JSON.parse(body);
+    const contentType = request.headers.get("content-type") ?? "";
+    const rawJson = contentType.includes("application/x-www-form-urlencoded")
+      ? new URLSearchParams(body).get("payload") ?? body
+      : body;
+    payload = JSON.parse(rawJson);
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
