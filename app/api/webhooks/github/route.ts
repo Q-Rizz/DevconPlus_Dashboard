@@ -2,6 +2,55 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { createServiceRoleClient } from "@/lib/supabase";
 import { linkPRToTask } from "@/lib/agent";
+import { sendTelegramMessage } from "@/lib/telegram";
+
+const PR_ACTION_LABEL: Record<string, string> = {
+  opened:            "🔀 PR Opened",
+  merged:            "✅ PR Merged",
+  closed:            "❌ PR Closed",
+  reopened:          "🔁 PR Reopened",
+  review_requested:  "👀 Review Requested",
+  ready_for_review:  "🟢 Ready for Review",
+};
+
+async function notifyTelegram(event: string, eventData: Record<string, unknown>, repoFullName: string) {
+  try {
+    let message: string;
+
+    if (event === "pull_request") {
+      const action = eventData.action as string;
+      const label = PR_ACTION_LABEL[action] ?? `🔀 PR ${action}`;
+      const title = eventData.pr_title as string;
+      const url = eventData.pr_url as string;
+      const author = eventData.author_login ? `@${eventData.author_login}` : "unknown";
+      const from = eventData.branch_from as string | null;
+      const to = eventData.branch_to as string | null;
+      const branchLine = from && to ? `\n   ${from} → ${to}` : "";
+
+      message =
+        `${label}: "${title}"\n` +
+        `   ${repoFullName}${branchLine}\n` +
+        `   by ${author}\n` +
+        `   ${url}`;
+    } else {
+      const branch = eventData.branch_to as string | null;
+      const author = eventData.author_login ? `@${eventData.author_login}` : "unknown";
+      const commitMsg = eventData.pr_title as string | null;
+      const url = eventData.pr_url as string | null;
+
+      message =
+        `📦 Push to ${branch ?? "unknown branch"} by ${author}\n` +
+        `   ${repoFullName}\n` +
+        (commitMsg ? `   "${commitMsg}"\n` : "") +
+        (url ? `   ${url}` : "");
+    }
+
+    await sendTelegramMessage(message);
+  } catch (err) {
+    // Never let a Telegram failure block the webhook response
+    console.error("[github-webhook] telegram notify failed:", err);
+  }
+}
 
 function verifySignature(secret: string, body: string, signature: string): boolean {
   const expected = "sha256=" + createHmac("sha256", secret).update(body).digest("hex");
@@ -92,6 +141,9 @@ export async function POST(request: NextRequest) {
   }
 
   await service.from("github_events").insert(eventData);
+
+  // Notify Telegram GC
+  await notifyTelegram(event, eventData, repoFullName);
 
   // Auto-link PR to the best-matching task in the connected project
   const conn = connection as { id: string; webhook_secret: string; project_id: string | null };
