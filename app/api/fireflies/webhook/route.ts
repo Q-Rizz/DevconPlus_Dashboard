@@ -14,6 +14,16 @@ interface FirefliesSummary {
   outline?: string;
 }
 
+interface FirefliesTranscriptData {
+  title?: string;
+  date?: string;
+  dateString?: string;
+  duration?: number;
+  fireflies_url?: string;
+  participants?: string[];
+  summary?: FirefliesSummary;
+}
+
 interface FirefliesPayload {
   meetingId?: string;
   eventType?: string;
@@ -25,14 +35,7 @@ interface FirefliesPayload {
   participants?: string[];
   summary?: FirefliesSummary;
   // Some Fireflies plans nest data under transcript
-  transcript?: {
-    title?: string;
-    date?: string;
-    duration?: number;
-    fireflies_url?: string;
-    summary?: FirefliesSummary;
-    participants?: string[];
-  };
+  transcript?: FirefliesTranscriptData & { id?: string };
 }
 
 function verifySignature(rawBody: string, signature: string, secret: string): boolean {
@@ -41,11 +44,69 @@ function verifySignature(rawBody: string, signature: string, secret: string): bo
     hmac.update(rawBody, "utf8");
     const computed = hmac.digest("hex");
     const provided = signature.replace(/^sha256=/, "");
-    // Both must be the same length for timingSafeEqual
     if (computed.length !== provided.length) return false;
     return timingSafeEqual(Buffer.from(computed, "hex"), Buffer.from(provided, "hex"));
   } catch {
     return false;
+  }
+}
+
+async function fetchFirefliesTranscript(
+  transcriptId: string,
+  apiKey: string
+): Promise<FirefliesTranscriptData | null> {
+  try {
+    const res = await fetch("https://api.fireflies.ai/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        query: `query Transcript($id: String!) {
+          transcript(id: $id) {
+            id
+            title
+            dateString
+            duration
+            fireflies_url
+            participants
+            summary {
+              gist
+              bullet_gist
+              keywords
+              short_summary
+              overview
+              action_items
+              outline
+            }
+          }
+        }`,
+        variables: { id: transcriptId },
+      }),
+    });
+
+    if (!res.ok) {
+      console.warn(`[fireflies/webhook] Fireflies API returned ${res.status}`);
+      return null;
+    }
+
+    const json = await res.json() as { data?: { transcript?: FirefliesTranscriptData & { dateString?: string } } };
+    const t = json?.data?.transcript;
+    if (!t) return null;
+
+    // Normalise dateString → date so downstream code stays consistent
+    return {
+      title: t.title,
+      date: t.dateString ?? t.date,
+      duration: t.duration,
+      fireflies_url: t.fireflies_url,
+      participants: t.participants,
+      summary: t.summary,
+    };
+  } catch (err) {
+    console.warn("[fireflies/webhook] Fireflies API fetch error:", err);
+    return null;
   }
 }
 
@@ -57,10 +118,14 @@ export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
 
-    // Verify webhook signing secret if configured.
-    // Skip verification for empty bodies (Fireflies sends a ping during config validation).
+    // Empty body = Fireflies config-validation ping
+    if (!rawBody.trim()) {
+      return NextResponse.json({ ok: true, message: "Ping acknowledged" });
+    }
+
+    // Verify webhook signing secret if configured
     const webhookSecret = process.env.FIREFLIES_WEBHOOK_SECRET;
-    if (webhookSecret && rawBody.trim()) {
+    if (webhookSecret) {
       const signature =
         request.headers.get("x-fireflies-signature") ??
         request.headers.get("x-hub-signature-256") ??
@@ -75,7 +140,9 @@ export async function POST(request: NextRequest) {
 
     const payload = JSON.parse(rawBody) as FirefliesPayload;
 
-    console.log(`[fireflies/webhook] eventType=${payload.eventType ?? "unknown"} meetingId=${payload.meetingId ?? "unknown"}`);
+    console.log(
+      `[fireflies/webhook] eventType=${payload.eventType ?? "unknown"} meetingId=${payload.meetingId ?? "unknown"}`
+    );
 
     // Only process completed transcriptions
     if (payload.eventType && payload.eventType !== "Transcription completed") {
@@ -83,8 +150,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, message: `Skipped event: ${payload.eventType}` });
     }
 
-    // Normalize: some plans nest data under payload.transcript
-    const data = payload.transcript ?? payload;
+    // Normalise: some plans nest data under payload.transcript
+    let data: FirefliesTranscriptData = payload.transcript ?? payload;
+
+    // If summary is missing from the webhook payload, fetch it from the Fireflies API.
+    // This is expected on non-Business plans where the webhook is a notification-only ping.
+    if (!data.summary) {
+      const apiKey = process.env.FIREFLIES_API_KEY;
+      const transcriptId = payload.meetingId ?? payload.transcript?.id;
+
+      if (apiKey && transcriptId) {
+        console.log(`[fireflies/webhook] No summary in payload — fetching from Fireflies API (id: ${transcriptId})`);
+        const fetched = await fetchFirefliesTranscript(transcriptId, apiKey);
+        if (fetched) {
+          data = {
+            title: fetched.title ?? data.title,
+            date: fetched.date ?? data.date,
+            duration: fetched.duration ?? data.duration,
+            fireflies_url: fetched.fireflies_url ?? data.fireflies_url,
+            participants: fetched.participants ?? data.participants,
+            summary: fetched.summary,
+          };
+        }
+      } else {
+        if (!apiKey) console.warn("[fireflies/webhook] FIREFLIES_API_KEY not set — cannot fetch transcript");
+        if (!transcriptId) console.warn("[fireflies/webhook] No meetingId in payload — cannot fetch transcript");
+      }
+    }
+
     const title = data.title ?? payload.title ?? "Team Meeting";
     const summary = data.summary ?? payload.summary;
     const duration = data.duration ?? payload.duration;
@@ -92,14 +185,19 @@ export async function POST(request: NextRequest) {
     const participants = data.participants ?? payload.participants ?? [];
     const dateRaw = data.date ?? payload.date ?? new Date().toISOString();
 
-    // Skip only if there is truly no summary object at all
     if (!summary) {
-      console.log("[fireflies/webhook] No summary object in payload — skipping", JSON.stringify(payload).slice(0, 300));
+      console.log(
+        "[fireflies/webhook] No summary after API fallback — skipping",
+        JSON.stringify(payload).slice(0, 300)
+      );
       return NextResponse.json({ ok: true, message: "No summary content, nothing to post" });
     }
 
     const dateStr = new Date(dateRaw).toLocaleDateString("en-PH", {
-      weekday: "long", year: "numeric", month: "long", day: "numeric",
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
       timeZone: "Asia/Manila",
     });
 
@@ -192,7 +290,10 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       console.error("[fireflies/webhook] Telegram send error:", err);
       return NextResponse.json(
-        { ok: false, error: `Recap saved (id: ${(announcement as { id: string }).id}) but GC send failed: ${err instanceof Error ? err.message : String(err)}` },
+        {
+          ok: false,
+          error: `Recap saved (id: ${(announcement as { id: string }).id}) but GC send failed: ${err instanceof Error ? err.message : String(err)}`,
+        },
         { status: 500 }
       );
     }
