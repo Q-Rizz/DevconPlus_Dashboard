@@ -227,21 +227,21 @@ export async function POST(request: NextRequest) {
         const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
         const completion = await groq.chat.completions.create({
           model: "llama-3.3-70b-versatile",
-          max_tokens: 500,
+          max_tokens: 200,
           temperature: 0.4,
           messages: [
             {
               role: "system",
               content:
                 "You are a project management assistant for DEVCON+ Philippines. " +
-                "Format the provided meeting summary into a clean team announcement.\n\n" +
+                "Write a TL;DR meeting recap for Telegram.\n\n" +
                 "Rules:\n" +
-                "- One-line opening that captures what the meeting was about\n" +
-                "- 3–5 key discussion points using • bullets\n" +
-                "- Action items prefixed with ✅ (only if present in the data)\n" +
-                "- Keep it under 220 words\n" +
-                "- Friendly and concise — this is a tight-knit team\n" +
-                "- Do NOT add greetings, sign-offs, or dates (those are added automatically)",
+                "- One sentence: what the meeting decided or accomplished\n" +
+                "- 2–3 bullet points max — only the most important points, no fluff\n" +
+                "- Action items prefixed with ✅ — max 3, only if clearly stated\n" +
+                "- Total length: under 80 words\n" +
+                "- No greetings, sign-offs, or dates (added automatically)\n" +
+                "- If there is nothing important to flag, say so in one line",
             },
             {
               role: "user",
