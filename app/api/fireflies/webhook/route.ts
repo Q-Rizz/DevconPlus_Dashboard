@@ -144,8 +144,13 @@ export async function POST(request: NextRequest) {
       `[fireflies/webhook] eventType=${payload.eventType ?? "unknown"} meetingId=${payload.meetingId ?? "unknown"}`
     );
 
-    // Only process completed transcriptions
-    if (payload.eventType && payload.eventType !== "Transcription completed") {
+    // Only process transcription/summary events — Fireflies uses different strings depending on plan/version
+    const ACCEPTED_EVENTS = new Set([
+      "Transcription completed",
+      "Meeting transcribed",
+      "Meeting summarized",
+    ]);
+    if (payload.eventType && !ACCEPTED_EVENTS.has(payload.eventType)) {
       console.log(`[fireflies/webhook] Skipping event type: ${payload.eventType}`);
       return NextResponse.json({ ok: true, message: `Skipped event: ${payload.eventType}` });
     }
