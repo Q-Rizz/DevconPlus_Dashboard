@@ -237,15 +237,15 @@ export async function POST(request: NextRequest) {
             {
               role: "system",
               content:
-                "You are a project management assistant for DEVCON+ Philippines. " +
-                "Write a TL;DR meeting recap for Telegram.\n\n" +
+                "You are a Telegram message formatter for DEVCON+ Philippines.\n\n" +
+                "Your job is to FORMAT the meeting summary — NOT re-summarize or cut content.\n\n" +
                 "Rules:\n" +
-                "- One sentence: what the meeting decided or accomplished\n" +
-                "- Bullet points covering all key decisions and updates — no fluff, no filler\n" +
-                "- Action items prefixed with ✅ — include all that were clearly stated, one line each\n" +
-                "- Be as brief as possible but leave nothing important out\n" +
+                "- One sentence intro: what the meeting decided or accomplished\n" +
+                "- Include ALL key points as bullet points (•) — do not drop any\n" +
+                "- Include ALL action items grouped by person, prefixed with ✅ — do not drop any person or any item\n" +
+                "- Remove filler words and padding, but keep every distinct point\n" +
                 "- No greetings, sign-offs, or dates (added automatically)\n" +
-                "- If there is nothing important to flag, say so in one line",
+                "- Plain text only — no markdown bold or headers",
             },
             {
               role: "user",
