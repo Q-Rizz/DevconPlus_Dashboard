@@ -146,9 +146,8 @@ export async function POST(request: NextRequest) {
 
     // Only process transcription/summary events — Fireflies uses different strings depending on plan/version
     const ACCEPTED_EVENTS = new Set([
-      "Transcription completed",
-      "Meeting transcribed",
-      "Meeting summarized",
+      "Transcription completed", // legacy / some plan variants
+      "Meeting summarized",      // Pro plan — summary is ready, preferred trigger
     ]);
     if (payload.eventType && !ACCEPTED_EVENTS.has(payload.eventType)) {
       console.log(`[fireflies/webhook] Skipping event type: ${payload.eventType}`);
