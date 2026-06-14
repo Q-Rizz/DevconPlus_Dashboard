@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
                 "Rules:\n" +
                 "- One sentence intro: what the meeting decided or accomplished\n" +
                 "- Include ALL key points as bullet points (•) — do not drop any\n" +
-                "- Include ALL action items grouped by person, prefixed with ✅ — do not drop any person or any item\n" +
+                "- Action items: one ✅ per person as a header (e.g. ✅ Ivy:), then bullet points (•) for each of their items — do not drop any person or any item\n" +
                 "- Remove filler words and padding, but keep every distinct point\n" +
                 "- No greetings, sign-offs, or dates (added automatically)\n" +
                 "- Plain text only — no markdown bold or headers\n" +
